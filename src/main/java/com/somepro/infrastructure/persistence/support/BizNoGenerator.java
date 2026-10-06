@@ -40,10 +40,20 @@ public final class BizNoGenerator {
      */
     public static <T> T insertWithRetry(Supplier<Long> maxSeqQuery, String prefix,
                                         Function<String, T> insertWithNo) {
+        return insertWithRetry(maxSeqQuery, prefix, insertWithNo, SEQ_WIDTH);
+    }
+
+    /**
+     * 取号并落库，撞号自动重取，序号宽度可指定。
+     *
+     * @param seqWidth 序号零填充宽度（观测编号 WO-YYYY-000001 用 6 位；站/点/任务号用默认 4 位）
+     */
+    public static <T> T insertWithRetry(Supplier<Long> maxSeqQuery, String prefix,
+                                        Function<String, T> insertWithNo, int seqWidth) {
         for (int attempt = 1; ; attempt++) {
             Long maxSeq = maxSeqQuery.get();
             long next = (maxSeq == null ? 0 : maxSeq) + 1;
-            String no = prefix + String.format("%0" + SEQ_WIDTH + "d", next);
+            String no = prefix + String.format("%0" + seqWidth + "d", next);
             try {
                 return insertWithNo.apply(no);
             } catch (DuplicateKeyException e) {

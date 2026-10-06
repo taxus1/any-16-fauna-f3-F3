@@ -185,6 +185,7 @@ PO↔领域↔VO 三层分离，DB 调用统一走仓储适配器的 `blocking(.
 | 监测点 | `/api/sites` | `POST` 登记（编号 `MP-YYYY-NNNN`，目标站必须存在且未停用未关闭）、`GET /{id}`、`PUT /{id}`、`POST /{id}/deactivate` 停测、`POST /{id}/activate` 恢复在册、`DELETE /{id}` 撤点（逻辑删除）、`GET` 条件分页（stationId/siteType/habitat/status） |
 | 物种名录 | `/api/species` | `POST` 录入（编码 `SP-NNNN`，保护级别默认 COMMON、状态默认 ENABLED）、`GET /{id}`、`PUT /{id}`、`POST /{id}/disable` 停用（不删除）、`GET` 条件分页（name/protectionLevel/status） |
 | 巡护任务 | `/api/tasks` | `POST` 派发（编号 `PT-YYYY-NNNN` 自动生成，也可显式指定，撞号返回业务失败不甩底层错；默认待执行）、`GET /{id}` 详情、`PUT /{id}` 改任务、`POST /{id}/start` 开工、`POST /{id}/complete` 完成回报、`POST /{id}/cancel` 取消（置已取消并逻辑销账：名单翻不到、账留在表里）、`GET` 条件分页（stationId/siteId/patrolType/status/plannedDate 全空翻整份任务，每行带任务编号） |
+| 野生动物观测 | `/api/observations` | `POST` 当场录入（编号 `WO-YYYY-NNNNNN` 六位序号自动生成，撞号重试不重号、作废占号不复用；健康状态不传默认 NORMAL，保护级别照物种名录当前级别抄一份快照）、`GET /{id}`、`PUT /{id}` 修改（传啥改啥）、`DELETE /{id}` 作废（逻辑删除：清单翻不到、底子留库备查）、`GET` 条件分页（taskId/siteId/speciesCode/healthStatus 随意拼，全空翻整份在册观测，每行带观测编号） |
 
 约定：
 - 编号生成「取号→落库」一体化重试（`BizNoGenerator`）：并发撞号重新取号，唯一索引兜底，
@@ -200,6 +201,12 @@ PO↔领域↔VO 三层分离，DB 调用统一走仓储适配器的 `blocking(.
 - 完成回报时把任务名下观测账归拢写回（obs_count 总条数、abnormal_count 异常条数，异常=受伤/
   死亡/疑似疫病），与观测记录读同一张 t_wildlife_obs、同一套 del_flag 过滤，两边数字一致；
   已结束/已取消的任务不再收新观测（领域钩子 `PatrolTask#acceptsObservation`），想补录得另开任务。
+- 观测录入守两道前置：任务必须在执行中（IN_PROGRESS），没开工/已完成/已取消都录不进去；
+  物种必须在名录且启用（ENABLED），名录没有或已停用的编码不收。观测上另留一份「当时的保护级别」
+  快照（protection_level）：录入/改挂物种时照名录当前级别抄一份，之后名录级别再怎么调，
+  老观测照旧是当初那份；只有真换了物种才重抄。个体数量必须正数，0/负数不收；健康状态限
+  NORMAL/INJURED/DEAD/SUSPECT，新记默认 NORMAL。作废 = @TableLogic 置 del_flag=1，
+  清单翻不到、物理行留库，作废号不复用。
 - 已在真实 MySQL 上端到端验证：69 项空库全流程用例 + 13 项存量数据（any_16_fauna 种子库）用例全部通过，
   含 10 路并发建站、8 路并发建点的编号唯一性验证。
 

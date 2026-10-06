@@ -75,6 +75,15 @@ public class SpeciesRepositoryImpl implements SpeciesRepository {
     }
 
     @Override
+    public Mono<Species> findByCode(String speciesCode) {
+        return blocking(() -> {
+            SpeciesPO po = speciesMapper.selectOne(Wrappers.<SpeciesPO>lambdaQuery()
+                    .eq(SpeciesPO::getSpeciesCode, speciesCode));
+            return po == null ? null : SpeciesPoConverter.toDomain(po);
+        });
+    }
+
+    @Override
     public Mono<PageResult<Species>> page(int pageNum, int pageSize,
                                           String name, String protectionLevel, String status) {
         return this.<PageResult<Species>>blocking(() -> {

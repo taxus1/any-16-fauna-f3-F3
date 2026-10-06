@@ -17,6 +17,12 @@ public interface SpeciesRepository {
 
     Mono<Species> findById(Long id);
 
+    /**
+     * 按物种编码查名录（观测录入核对「物种得在名录里」用）。
+     * 已删除（del_flag=1）的查不到，按不在名录处理。
+     */
+    Mono<Species> findByCode(String speciesCode);
+
     /** 条件分页：条件全空时返回整份名册。 */
     Mono<PageResult<Species>> page(int pageNum, int pageSize,
                                    String name, String protectionLevel, String status);
